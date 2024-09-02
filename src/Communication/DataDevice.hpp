@@ -35,6 +35,7 @@ public:
                         BATTERY_FRAME *_batteyrFr,
                         FAN_FRAME *_fanFr,
                         ACTUATOR_FRAME *_actuatorFr,
+                        ADDITION_FRAME *_additionFr,
                         HardwareSerial &debugPort
                 );
 };

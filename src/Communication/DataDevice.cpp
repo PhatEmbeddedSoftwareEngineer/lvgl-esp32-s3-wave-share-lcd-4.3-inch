@@ -31,6 +31,7 @@ void DataDevice::update(BMS_FRAME *_bmsFr,
                         BATTERY_FRAME *_batteryFr,
                         FAN_FRAME *_fanFr,
                         ACTUATOR_FRAME *_actuatorFr,
+                        ADDITION_FRAME *_additionFr,
                         HardwareSerial &debugPort)
 {
     if (lv_receive)
@@ -85,6 +86,7 @@ void DataDevice::update(BMS_FRAME *_bmsFr,
             sendFr.main[1] = COMMAND_ID::BATTERY;
             sendFr.main[2] = DATA_LENGTH::BATTERY_MAIN_FRAME;
             lv_step_send++;
+            break;
         case 6: // BATTERY_CELL_FRAME
             sendFr.main[1] = COMMAND_ID::BATTERY;
             sendFr.main[2] = DATA_LENGTH::BATTERY_CELL_FRAME;
@@ -103,7 +105,12 @@ void DataDevice::update(BMS_FRAME *_bmsFr,
         case 9: // ACTUATOR_MAIN_FRAME
             sendFr.main[1] = COMMAND_ID::ACTUATOR;
             sendFr.main[2] = DATA_LENGTH::ACTUATOR_MAIN_FRAME;
-            lv_step_send=0;
+            lv_step_send++;
+            break;
+        case 10:
+            sendFr.main[1] = COMMAND_ID::ADDITION;
+            sendFr.main[2] = DATA_LENGTH::ADDITION_MAIN_FRAME;
+            lv_step_send = 0;
             break;
         default:
             break;
@@ -157,6 +164,9 @@ void DataDevice::update(BMS_FRAME *_bmsFr,
                 break;
             case DATA_LENGTH::ACTUATOR_MAIN_FRAME:
                 receive((*_actuatorFr).main,DATA_LENGTH::ACTUATOR_MAIN_FRAME,&lv_receive);
+                break;
+            case DATA_LENGTH::ADDITION_MAIN_FRAME:
+                receive((*_additionFr).main,DATA_LENGTH::ADDITION_MAIN_FRAME,&lv_receive);
                 break;
             default:
                 break;

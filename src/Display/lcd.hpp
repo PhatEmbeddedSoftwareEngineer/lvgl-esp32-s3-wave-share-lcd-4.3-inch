@@ -38,7 +38,7 @@ extern SemaphoreHandle_t gui_mutex;
 typedef struct 
 {
     /*for DJI*/
-    char buf[20]; // 20 bytes 
+    char buf[512]; // 20 bytes 
     uint16_t solanSac; // 2 bytes 
     uint16_t count; // 2byte 
     double dienAp; // 8 byte 
@@ -97,8 +97,8 @@ typedef enum
 }state_t;
 
 
-#define SIZE_FAN 230
-#define SIZE_LED 200
+// #define SIZE_FAN 230
+// #define SIZE_LED 200
 // Extend IO Pin define
 #define TP_RST 1
 #define LCD_BL 2
@@ -118,8 +118,6 @@ typedef enum
 #define LVGL_TICK_PERIOD_MS     (2)
 #define LVGL_TASK_MAX_DELAY_MS  (500)
 #define LVGL_TASK_MIN_DELAY_MS  (1)
-// #define LVGL_TASK_STACK_SIZE    (4 * 1024)
-// #define LVGL_TASK_PRIORITY      (10)
 #define LVGL_BUF_SIZE           (ESP_PANEL_LCD_H_RES * 20) // 800*20 
 
 
@@ -154,33 +152,19 @@ typedef struct
     uint32_t ORANGE = 0xFFA500;
 }Color;
 
-enum STATE_FAN
+typedef enum chooseBar
 {
-    ACTIVATE,
-    STOP
+    BARDJI,
+    BARBMS1,
+    BARBMS2,
+}Bar;
+
+enum CHOOSE
+{
+    CHOOSE_DJI=2,
+    CHOOSE_BMS1=3,
+    CHOOSE_BMS2=4
 };
-
-enum STATE_LED
-{
-    COLOR_GREEN,
-    COLOR_RED,
-    COLOR_YELLOW,
-    OFF
-};
-
-typedef enum
-{
-    DJIBAR,
-    BMS1BAR,
-    BMS2BAR
-}BAR;
-
-typedef enum
-{
-    DJIPAGE,
-    BMS1PAGE,
-    BMS2PAGE
-}PAGE;
 
 LV_IMG_DECLARE(logosmall);
 LV_FONT_DECLARE(arial_40);
@@ -189,68 +173,11 @@ LV_FONT_DECLARE(font_1);
 class LCD_4_3
 {
 private:
-    const int bauds=115200;
-    
-    //static lv_obj_t * LABEL;
-    //unsigned long now=0;
-    state_t state;
     
 public:
-    // biến này dùng để điều khiển hoạt động của quạt 
-    //volatile uint8_t StopFan=1;
-    // constructor 
     LCD_4_3();
-    /**
-     * hàm khởi tạo cho lcd 
-     */
-    //void InitLCD();
-
-    /*HÀM THANH TIẾN TRÌNH HIỂN THỊ GIÁ TRỊ*/
-    //void MainBar(void);
-
-    /*Image*/
-    //void ui_Image(lv_obj_t **labelCurrent);
-    // logo ttd ecopower
-    //void uiLoGoQuangCao();
-    // clear màn hình 
-    //void ClearScreen(void);
-    // hàm này để điều khiển các page màn hình 
     void stateMachine(int state);
-    /* hàm này dùng để chạy các task vụ đa luồng freeRTOS */
     void initMuititask(void);
-    // hàm này dùng để hiển thị số cell pin 
-    //void showCellpin(int x, const int distance,showCell _cell,PageType_t type);
-    // hàm sáng mờ logo ttd 
-    //void sangMoLogo();
-    // hàm chống cuộn lên cuộn xuống màn hình 
-    //void fixLagLCD(void);
-
-    // hàm hiển thị màn hình pin bms1
-    //void uiPage2();
-    //void barBMS1(void);
-
-    // hàm hiển thị màn hình pin bms2
-    //void uiPage3(void);
-    //void barBMS2(void);
-
-    // hàm xoay hình ảnh 
-    //void RotateImage(uint8_t stateFan);
-    // hàm này dùng để vẽ hình tròn 
-    //void drawCircle(uint8_t stateLedOne, uint8_t stateLedTwo, uint8_t stateledThree);
-
-    //void refeshObjDJI(void);
-
-    /** các hàm dưới đây không phải 
-     * hàm chạy chính chủ yếu để test */
-
-    //void animationGIF(void);
-    /* hàm này dùng để set góc cho hàm loading...*/
-    /* hàm này là hàm loading.. có tham số setup được thời gian */
-    //void LoadingScreen(int time);
-    //void display(String hello);
-    // hàm vẽ hình vuông 
-    //void drawRectangle(void);
-
 };
 
 

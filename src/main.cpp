@@ -6,7 +6,6 @@
 #include "BLE/ble.hpp"
 
 DataDevice dataDevice(DATA_PORT);
-
 // define task handles
 
 TaskHandle_t TaskDataDevice_Handler;
@@ -21,12 +20,8 @@ TaskHandle_t TaskUpdateLCD_Handler;
 static void TaskDataDevice( void *pvParameters );
 static void TaskMain( void *pvParameters );
 static void TaskDisplay( void *pvParameters );
-
-unsigned long now=0;
-
 Bluetooth bluetooth;
 LCD_4_3 obj;
-
 /* tạo hàng đợi*/
 QueueHandle_t QueueHandle;
 const int QueueElementSize = 10;
@@ -36,12 +31,8 @@ const int QueueElementSize = 10;
 SemaphoreHandle_t gui_mutex;
 
 BATTERY_TYPE battery;
-
-
 void setup()
 {
-
-#if 1
     dataDevice.init();
     QueueHandle = xQueueCreate(QueueElementSize, sizeof(message_t));
     if (QueueHandle == NULL) {
@@ -54,12 +45,13 @@ void setup()
         Serial.println("semaphore creation failure");
         return;
     }
-    //bluetooth.setupBluetooth();
+    bluetooth.setupBluetooth();
     obj.stateMachine(START);
     obj.stateMachine(SCREEN0);
-    
     additionFr.set=2;
     obj.initMuititask();
+
+    // create task
     BaseType_t xDataDeviceCreate   = xTaskCreatePinnedToCore(   TaskDataDevice,
                                                                 DATADEVICE_TASKNAME, 
                                                                 DATADEVICE_STACKSIZE, 
@@ -67,7 +59,8 @@ void setup()
                                                                 DATADEVICE_PRIORITY, 
                                                                 &TaskDataDevice_Handler,
                                                                 DATADEVICE_COREID);
-    if(xDataDeviceCreate != pdPASS) Serial.println("Create xDataDeviceCreate fail!"); 
+    if(xDataDeviceCreate != pdPASS) Serial.println("Create xDataDeviceCreate fail!");   
+
     BaseType_t xMainCreate   = xTaskCreatePinnedToCore(         TaskMain,
                                                                 MAIN_TASKNAME, 
                                                                 MAIN_STACKSIZE, 
@@ -75,8 +68,9 @@ void setup()
                                                                 MAIN_PRIORITY, 
                                                                 &TaskMain_Handler,
                                                                 MAIN_COREID); 
-    if(xMainCreate != pdPASS) Serial.println("Create xMainCreate fail!");  
-    BaseType_t xDisplayCreate   = xTaskCreatePinnedToCore(      TaskDisplay,
+    if(xMainCreate != pdPASS) Serial.println("Create xMainCreate fail!");   
+
+    BaseType_t xDisplayCreate   = xTaskCreatePinnedToCore(      TaskMain,
                                                                 DISPLAY_TASKNAME, 
                                                                 DISPLAY_STACKSIZE, 
                                                                 NULL, 
@@ -84,39 +78,18 @@ void setup()
                                                                 &TaskDisplay_Handler,
                                                                 DISPLAY_COREID); 
     if(xDisplayCreate != pdPASS) Serial.println("Create xDisplayCreate fail!"); 
-#endif
-    
 }
-
-static void uploadCode(void);
 unsigned long waitSeconds=0;
 bool updateState=true;
-static uint16_t count=0;
-void loop() 
-{
-    if(millis() - now >= 5000)
-    {
-        now = millis();
-        count++;
-        Serial.printf("count:= %d\n",count);
-        vTaskSuspend(TaskDataDevice_Handler);
-        vTaskSuspend(TaskMain_Handler);
-        vTaskSuspend(TaskDisplay_Handler);
-        vTaskSuspend(TaskLVGLMAIN_Handler);
-        vTaskSuspend(TaskGetData_Handler);
-        vTaskSuspend(TaskUpdataScreen_Handler);
-        //vTaskDelete(TaskUpdataScreen_Handler);
-        additionFr.set++;
-        if(additionFr.set>4)
-            additionFr.set=2;
-    }
-#if 0
-   bluetooth.mainBluetooth();
-   uploadCode(); 
-   
-#endif
-}
+static void uploadCode(void);
 
+void loop()
+{
+    bluetooth.loopBluetooth();
+    uploadCode(); 
+    //Serial.printf("hello world\n"); delay(500);
+    // loop not use
+}
 static void uploadCode(void)
 {
 #if 1
@@ -141,8 +114,6 @@ static void uploadCode(void)
     }
 #endif
 }
-
-
 static void TaskMain( void *pvParameters )
 {
 /*
@@ -153,96 +124,115 @@ static void TaskMain( void *pvParameters )
     (void) pvParameters;
     for (;;) 
     {
-        //Serial.printf("\n[TaskMain] running on core: %d, Free stack space: %d\n", xPortGetCoreID(), uxTaskGetStackHighWaterMark(NULL));
+        // if (xSemaphoreTakeRecursive(gui_mutex, portMAX_DELAY) == pdTRUE)
+        // {
+        //     if(additionFr.set==3 || additionFr.set==4)
+        //     {
+                // ------------------------------------- BMS -----------------------------------
+                for (uint8_t i = 0; i < dataDevice.bms_volume; i++)
+                {
+                    // voltage
+                    bmsFr.get[i].packVoltage =  (float)(bmsFr.ins[i].main[4] * 100 + bmsFr.ins[i].main[5]) / 100;
+                    // current
+                    bmsFr.get[i].packCurrent =  (float)((int8_t)bmsFr.ins[i].main[6] * 100 + bmsFr.ins[i].main[7]) / 100;
+                    // SOC, percent
+                    bmsFr.get[i].packSOC     =  (float)(bmsFr.ins[i].main[8] * 100 + bmsFr.ins[i].main[9]) / 100;
+                    // temperature
+                    bmsFr.get[i].tempMin     =  bmsFr.ins[i].main[10];
+                    bmsFr.get[i].tempMax     =  bmsFr.ins[i].main[11];
+                    bmsFr.get[i].tempAverage =  (bmsFr.get[i].tempMin + bmsFr.get[i].tempMax) / 2;
+                    // error
+                    bmsFr.get[i].error       =  bmsFr.ins[i].main[12];
+                    // cell
+                    for (size_t j = 0; j < 16; j++) bmsFr.get[i].cellVmV[j] = (bmsFr.ins[i].cell[4 + 2*j] << 8) | bmsFr.ins[i].cell[5 + 2*j];
+                    // Maximum cell voltage (mV)
+                    bmsFr.get[i].maxCellmV = (bmsFr.ins[i].add[4] << 8)| bmsFr.ins[i].add[5];
+                    // Minimum cell voltage (mV)
+                    bmsFr.get[i].minCellmV = (bmsFr.ins[i].add[6] << 8)| bmsFr.ins[i].add[7];
+                    // charge/discharge status (0 stationary, 1 charge, 2 discharge)
+                    bmsFr.get[i].chargeDischargeStatus = bmsFr.ins[i].add[8];
+                    // charging MOSFET status
+                    bmsFr.get[i].chargeFetState = bmsFr.ins[i].add[9];
+                    // discharge MOSFET state
+                    bmsFr.get[i].disChargeFetState = bmsFr.ins[i].add[10];
+                    // BMS life (0~255 cycles)?
+                    bmsFr.get[i].bmsHeartBeat = bmsFr.ins[i].add[11];
+                    // residual capacity mAH
+                    bmsFr.get[i].resCapacitymAh =   (bmsFr.ins[i].add[12] << 24) | (bmsFr.ins[i].add[13] << 16)
+                                        |           (bmsFr.ins[i].add[14] << 8)  | (bmsFr.ins[i].add[15]);
+                    // Cell count
+                    bmsFr.get[i].numberOfCells = bmsFr.ins[i].add[16];
+                    // Temp sensor count
+                    bmsFr.get[i].numOfTempSensors = bmsFr.ins[i].add[17];
+                    // charger status 0 = disconnected 1 = connected
+                    bmsFr.get[i].chargeState = bmsFr.ins[i].add[18];
+                    // Load Status 0=disconnected 1=connected
+                    bmsFr.get[i].loadState = bmsFr.ins[i].add[19];
+                    // charge / discharge cycles
+                    bmsFr.get[i].bmsCycles = (bmsFr.ins[i].add[21] << 8) | bmsFr.ins[i].add[22];
+                }
+            // }   
 
-        // BMS
-        //for (uint8_t i = 0; i < dataDevice.bms_volume; i++) // dataDevice.bms_volume=2;
-        for (uint8_t i = 0; i < 2; i++)
-        {
-            // voltage
-            //bmsFr.get[i].packVoltage =  (float)(bmsFr.ins[i].main[4] * 100 + bmsFr.ins[i].main[5]) / 100;
-            bmsFr.get[i].packVoltage =  (float)random(40000,58000)/1000;
-            // current
-            //bmsFr.get[i].packCurrent =  (float)(bmsFr.ins[i].main[6] * 100 + bmsFr.ins[i].main[7]) / 100;
-            bmsFr.get[i].packCurrent =  random(0,2000)/10;
-            // SOC, percent
-            //bmsFr.get[i].packSOC     =  (float)(bmsFr.ins[i].main[8] * 100 + bmsFr.ins[i].main[9]) / 100;
-            bmsFr.get[i].packSOC     =  random(1,100);
-            // temperature
-            bmsFr.get[i].tempMin     =  bmsFr.ins[i].main[10];
-            bmsFr.get[i].tempMax     =  bmsFr.ins[i].main[11];
-            //bmsFr.get[i].tempAverage =  (bmsFr.get[i].tempMin + bmsFr.get[i].tempMax) / 2;
-            bmsFr.get[i].tempAverage =  random(250,1000)/10;
-            // error
-            bmsFr.get[i].error       =  bmsFr.ins[i].main[12];
-            // cell
-            //for (size_t j = 0; j < 16; j++) bmsFr.get[i].cellVmV[j] = (bmsFr.ins[i].cell[4 + 2*j] << 8) | bmsFr.ins[i].cell[5 + 2*j];
-            for (size_t j = 0; j < 16; j++) bmsFr.get[i].cellVmV[j] = (float)random(325,425)/100;
-            // Maximum cell voltage (mV)
-            bmsFr.get[i].maxCellmV = (bmsFr.ins[i].add[4] << 8)| bmsFr.ins[i].add[5];
-            // Minimum cell voltage (mV)
-            bmsFr.get[i].minCellmV = (bmsFr.ins[i].add[6] << 8)| bmsFr.ins[i].add[7];
-            // charge/discharge status (0 stationary, 1 charge, 2 discharge)
-            bmsFr.get[i].chargeDischargeStatus = bmsFr.ins[i].add[8];
-            // charging MOSFET status
-            // discharge MOSFET state
-            // BMS life (0~255 cycles)?
-            // residual capacity mAH
-            // Cell count
-            // Temp sensor count
-            // charger status 0 = disconnected 1 = connected
-            // Load Status 0=disconnected 1=connected
-            // charge / discharge cycles
-            // SO LAN SAC
-            // bmsFr.get[i].bmsCycles = (bmsFr.ins[i].add[21] << 8) | bmsFr.ins[i].add[22];
-            bmsFr.get[i].bmsCycles = random(0,2500);
-        }
+            // if(additionFr.set==2)
+            // {  
+                    // ------------------------------ DJI Battery -------------------------
+                    // voltage
+                    batteryFr.get.voltage = (batteryFr.main[3] << 8) | batteryFr.main[4];
+                    // current
+                    batteryFr.get.current = (batteryFr.main[5] << 24) | (batteryFr.main[6] << 16)
+                                            |(batteryFr.main[7] << 8) | (batteryFr.main[8]);
+                    // temperature
+                    batteryFr.get.temperature = (batteryFr.main[9] << 8) | batteryFr.main[10];
+                    // percent
+                    batteryFr.get.percent = batteryFr.main[11];
+                    // error
+                    batteryFr.get.countError = batteryFr.main[12];
+                    // cell
+                    for (uint8_t i = 0; i < 14; i++)  batteryFr.get.cell[i] = (batteryFr.cell[3+2*i] << 8) | batteryFr.cell[4+2*i];
+                    // numberCharge
+                    batteryFr.get.numberCharge = (batteryFr.add[3] << 8) | batteryFr.add[4];
+                    // capacity
+                    batteryFr.get.capacity = (batteryFr.add[5] << 8) | batteryFr.add[6];
+                    // version
+                    for (uint8_t i = 0; i < 4; i++) batteryFr.get.version[i] = batteryFr.add[7 + i];
+                    // serinumber
+                    for (uint8_t i = 0; i < 14; i++) batteryFr.get.seriNumber[i] = batteryFr.add[11 + i];
+                    
+                    // ------------------------------- Fan --------------------------------
+                    for (uint8_t i = 0; i < 6; i++) fanFr.fan_rpm[i] = fanFr.main[6 + i]; 
+                    
+                    // ------------------------------- Led --------------------------------
+                    actuatorFr.led.bms = actuatorFr.main[3];
+                    actuatorFr.led.dcdc = actuatorFr.main[4];
+                    actuatorFr.led.battery = actuatorFr.main[5];
 
-        // DJI Battery
-        // voltage
-        //batteryFr.get.voltage = (batteryFr.main[3] << 8) | batteryFr.main[4];
-        batteryFr.get.voltage = random(40000,58000);
-        // current
-        // batteryFr.get.current = (batteryFr.main[5] << 24) | (batteryFr.main[6] << 16)
-        //                         |(batteryFr.main[7] << 8) | (batteryFr.main[8]);
+                    // ------------------------------- ADDITION_FRAME --------------------------------
+                    if(additionFr.main[3] % 3 == 0) additionFr.set = 2;
+                    if(additionFr.main[3] % 3 == 1) additionFr.set = 3;
+                    if(additionFr.main[3] % 3 == 2) additionFr.set = 4;
+                    //additionFr.set = additionFr.main[3];
+                    // Serial.print(additionFr.main[3] % 3);
+                    // Serial.print(" ");
+                    // Serial.println(additionFr.set);
+        //     }
+        //     xSemaphoreGiveRecursive(gui_mutex);
+        // }
+        vTaskDelay((100L * configTICK_RATE_HZ) / 1000L);    
 
-        batteryFr.get.current = random(0,200);
 
-        // temperature
-        //batteryFr.get.temperature = (batteryFr.main[9] << 8) | batteryFr.main[10];
-        batteryFr.get.temperature = random(250,1000);
-        // percent
-        //batteryFr.get.percent = batteryFr.main[11];
-        batteryFr.get.percent = random(1,100);
-        // error
-        batteryFr.get.countError = batteryFr.main[12];
-        // cell
-        //for (uint8_t i = 0; i < 14; i++)  batteryFr.get.cell[i] = (batteryFr.cell[3+2*i] << 8) | batteryFr.cell[4+2*i];
-        for (uint8_t i = 0; i < 14; i++)  batteryFr.get.cell[i] = random(325,425);
-        // numberCharge // so lan sac 
-        //batteryFr.get.numberCharge = (batteryFr.add[3] << 8) | batteryFr.add[4];
-        batteryFr.get.numberCharge = random(0,2500);
-        // capacity 
-        // ten pin 
-        batteryFr.get.capacity = BATTERY_T30;
-        // version
-        //for (uint8_t i = 0; i < 4; i++) batteryFr.get.version[i] = batteryFr.add[7+i];
-        for (uint8_t i = 0; i < 4; i++) batteryFr.get.version[i] = random(0,5);
-        // serinumber
-        //for (uint8_t i = 0; i < 14; i++) batteryFr.get.seriNumber[i] = batteryFr.add[11+i];
-        for (uint8_t i = 0; i < 14; i++) batteryFr.get.seriNumber[i] = random(65,91);
-        
-        // // Debug test data
+
+
+        // Debug test data
         // Serial.print(bmsFr.get[0].packVoltage); Serial.print(" ");
         // Serial.print(bmsFr.get[0].cellVmV[7]); Serial.print(" ");
         // Serial.print(bmsFr.get[1].cellVmV[5]); Serial.print(" ");
         // Serial.print(batteryFr.get.percent); Serial.print(" ");
         // Serial.print(batteryFr.get.cell[1]); Serial.print(" ");
         // Serial.println(batteryFr.get.capacity);
+        // Serial.println(additionFr.set);
 
-        vTaskDelay((100L * configTICK_RATE_HZ) / 1000L);
+        // vTaskDelay((1000L * configTICK_RATE_HZ) / 1000L);
     }
-    vTaskDelete(NULL);
 }
 
 static void TaskDataDevice( void *pvParameters )
@@ -254,10 +244,14 @@ static void TaskDataDevice( void *pvParameters )
     (void) pvParameters;
     for (;;) 
     {
-        dataDevice.update(&bmsFr, &dcdcFr, &batteryFr, &fanFr, &actuatorFr, Serial);
+        // if (xSemaphoreTakeRecursive(gui_mutex, portMAX_DELAY) == pdTRUE) 
+        // {
+            dataDevice.update(&bmsFr, &dcdcFr, &batteryFr, &fanFr, &actuatorFr, &additionFr, Serial);
+        //     xSemaphoreGiveRecursive(gui_mutex);
+        // }
+        
         vTaskDelay((1L * configTICK_RATE_HZ) / 1000L);
     }
-    vTaskDelete(NULL);
 }
 
 static void TaskDisplay( void *pvParameters )
@@ -269,8 +263,10 @@ static void TaskDisplay( void *pvParameters )
     (void) pvParameters;
     for (;;) 
     {
-        //lv_task_handler();
+        // if (xSemaphoreTakeRecursive(gui_mutex, portMAX_DELAY) == pdTRUE) 
+        // {
+        //     xSemaphoreGiveRecursive(gui_mutex);
+        // }
         vTaskDelay((1L * configTICK_RATE_HZ) / 1000L);
     } 
-    vTaskDelete(NULL);
 }

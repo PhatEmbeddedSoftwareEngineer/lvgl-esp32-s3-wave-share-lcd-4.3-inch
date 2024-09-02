@@ -12,14 +12,12 @@ extern TaskHandle_t TaskGetData_Handler;
 extern TaskHandle_t TaskUpdataScreen_Handler;
 extern TaskHandle_t TaskUpdateLCD_Handler;
 
-
 // config hardware 
 #define DATA_PORT   Serial1
 
 // Communication
 // DataDevice
 #include "Communication/DataDevice.hpp"
-
 
 // define marco for task in application
 #define DATADEVICE_TASKNAME      "DataDeviceTask"
@@ -33,7 +31,7 @@ extern TaskHandle_t TaskUpdateLCD_Handler;
 #define MAIN_COREID              1
 
 #define DISPLAY_TASKNAME         "DisplayTask"
-#define DISPLAY_STACKSIZE         1024
+#define DISPLAY_STACKSIZE         1024*3
 #define DISPLAY_PRIORITY          1
 #define DISPLAY_COREID            0
 
@@ -43,21 +41,19 @@ extern TaskHandle_t TaskUpdateLCD_Handler;
 #define LVGL_COREID               0
 
 #define GETDATA_TASKNAME          "Task get data"
-#define GETDATA_STACKSIZE         1024*3
+#define GETDATA_STACKSIZE         1024*4
 #define GETDATA_PRIORITY          2
 #define GETDATA_COREID            1
 
 
 #define UPDATE_TASKNAME          "task screen update"
 #define UPDATE_STACKSIZE         1024*3
-#define UPDATE_PRIORITY          7
-#define UPDATE_COREID            0
+#define UPDATE_PRIORITY          5
+#define UPDATE_COREID            1
 
 #define CHANGE_SCREEN            "change screen"
 #define CHANGE_SCREEN_STACKSIZE  1024*3
 #define CHANGE_SCREEN_PRIORITY   8
 #define CHANGE_SCREEN_COREID     0
-
-
 
 #endif // DEFINE_H

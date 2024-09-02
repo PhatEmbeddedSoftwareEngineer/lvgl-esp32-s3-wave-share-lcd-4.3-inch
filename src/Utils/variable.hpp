@@ -26,11 +26,12 @@ enum COMMAND_ID
     BATTERY = 0x4E,
     FAN     = 0x48,
     ACTUATOR= 0x52,
+    ADDITION= 0x73,
 };
 
 enum DATA_LENGTH
 {
-    BMS_VOLUME_FRAME        = 6,
+    BMS_VOLUME_FRAME        = 7,
     BMS_MAIN_FRAME          = 22,
     BMS_CELL_FRAME          = 38,
     BMS_ADDITION_FRAME      = 25,
@@ -41,7 +42,7 @@ enum DATA_LENGTH
     FAN_MAIN_FRAME          = 14,
     ACTUATOR_MAIN_FRAME     = 10,
     C4G_FRAME               = 9,
-    DISPLAY_ADD_FRAME       = 6,
+    ADDITION_MAIN_FRAME     = 8,
 };
 
 enum BMS_ADDRESS
@@ -225,16 +226,24 @@ struct BATTERY_FRAME
 struct FAN_FRAME
 {
     volatile uint8_t main[DATA_LENGTH::FAN_MAIN_FRAME];
+    volatile uint8_t fan_rpm[6];
 };
 
 struct ACTUATOR_FRAME
 {
     volatile uint8_t main[DATA_LENGTH::ACTUATOR_MAIN_FRAME];
+    struct LED
+    {
+        volatile uint8_t bms;
+        volatile uint8_t dcdc;
+        volatile uint8_t battery;
+    }led;
+    
 };
 
 struct ADDITION_FRAME
 {
-    volatile uint8_t main[DATA_LENGTH::DISPLAY_ADD_FRAME];
+    volatile uint8_t main[DATA_LENGTH::ADDITION_MAIN_FRAME];
     volatile uint8_t set;
 };
 #define DATA_FRAME                  DATA_LENGTH::C4G_FRAME
